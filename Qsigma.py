@@ -1,5 +1,8 @@
 from irlc.agent import Agent, train
 import numpy as np
+from irlc.irlc_plot import main_plot
+import matplotlib.pyplot as plt
+import gym
 
 class Qsigma(Agent):
     def __init__(self, env, gamma, alpha, epsilon, n):
@@ -9,63 +12,79 @@ class Qsigma(Agent):
         self.nS, self.nA = env.nS, env.nA
         self.Q = np.random.random((env.nS, env.nA))
 
-        self.stored = {v: {} for v in ['actions', 'states','deltas','Qs', 'bp', 'sigmas','rhos']}
+        self.stored = {v: {i: 0 for i in range(1, n)} for v in ['actions', 'states','Qs','sigmas','rhos']}
         super().__init__(env, gamma, epsilon)
 
 
     def pi(self, s):
-        return np.argmax(self.Q[s, :])
+        return np.argmax(self.Q[s])
 
 
     def train(self, s, a, r, sp, done=False):
-        T, tau, n = np.inf, 0, self.n
-        self.stored['actions'][0] = self.get_bp(s)[0]
+        T, t, tau, n = np.inf, -1, 0, self.n
+
+        behavior_policy = self.get_policy(s, epsilon=0.3)
+        target_policy = self.get_policy(s, epsilon=self.epsilon)
+
+        self.stored['actions'][0] = behavior_policy['action']
         self.stored['states'][0] = s
         self.stored['Qs'][0] = self.Q[s, self.stored['actions'][0]]
-        self.stored['bp'][0] = self.get_bp(s)[1]
-        self.stored['sigmas'][0] = self.select_sigma(s)
-        self.stored['rhos'][0] = # \pi(A_t+1 | S_t+1) / \mu(S_t+1|A_t+1)
+        self.stored['sigmas'][0] = self.get_sigma(a)
+        self.stored['rhos'][0] = target_policy['probs'][self.stored['actions'][0]] / behavior_policy['probs'][self.stored['actions'][0]]
 
-        for t in range(T+self.n-1):
+        while tau < (T-1):
+            t += 1
             if t < T:
-                sp, R, done, _ = self.env.step(a)
-                self.stored['states'][t+1] = sp
+                s_, _, done, _ = self.env.step(a)
+                self.stored['states'][(t+1)%n] = s_
                 if done:
                     T = t+1
                 else:
-                    A_tp = np.random.choice(self.behaviour_pi[s])
-                    sigma_tp = self.select_sigma()
+                    a_ = self.get_policy(s, epsilon=0.3)['action']
+                    self.stored['actions'][(t+1)%n] = a_
+                    self.stored['sigmas'][(t+1)%n] = self.get_sigma(a_)
+                    behavior_policy_, target_policy_ = self.get_policy(s_, epsilon=0.3), self.get_policy(s_, epsilon=self.epsilon)
+                    self.stored['rhos'][(t+1)%n] = target_policy_['probs'] / behavior_policy_['probs']
+            tau = t-n+1
             if tau >= 0:
-                #rho = 0
-                E = 1
-                G = self.Q[self.stored['Qs'][tau % (n+1)]]
+                if t+1 < T:
+                    G = self.stored['Qs'][(t+1)%n]
+                for k in range(min(t+1, T), tau+1):
+                    Ak = self.stored['actions'][k%n]
+                    Sk, Rk, done, _ = self.env.step(Ak)
+                    if k == T:
+                        G = Rk
+                    else:
+                        V = sum(target_policy[Sk]['action']*self.stored['Qs'][Sk%n])
+                        sigma_k, rho_k = self.stored['sigmas'][k%n], self.stored['rhos'][k%n]
+                        G = Rk + self.gamma*(sigma_k*rho_k + (1-sigma_k)*target_policy[Sk]['action'])*(G-self.stored[Sk, Ak])+self.gamma*V
+                s_tau, a_tau = self.stored['states'][tau%n], self.stored['actions'][tau%n]
+                self.Q[s_tau, a_tau] += self.alpha*(G - self.Q[s_tau, a_tau])
 
-                for k in range(tau, min(tau+n-1, T-1)):
-                    G += self.stored['deltas'][k%n]
-                    E = self.gamma * (1 - self.stored['sigma'][k%n]) + self.stored['bp'][(k+1)%n] + self.stored['sigmas'][(k+1)%n]
-                    rho *= (1 - self.stored['sigmas'][k%n] + self.stored['sigmas'])*self.stored['rhos'][k%n]
 
-                a_tau, s_tau = self.stored['actions'][tau], self.stored['states'][tau]
-                self.Q[a_tau, s_tau] += self.alpha * rho * (G - Q[a_tau, s_tau])
-
-
-    def get_bp(self, s):
+    def get_policy(self, s, epsilon):
         a = np.argmax(self.Q[s][:])
-        bp_probs = np.ones(self.nA)*self.epsilon/self.nA
-        bp_probs[a] += (1 - self.epsilon)
+        pi_probs = np.ones(self.nA)*epsilon/self.nA
+        pi_probs[a] += (1 - epsilon)
 
-        return np.random.choice(range(self.nA), p = bp_probs), bp_probs
+        return {'action': np.random.choice(range(self.nA), p=pi_probs), 'probs': pi_probs}
     
-    def get_tp(self, s):
-        a = np.argmax(self.Q[s][:])
-        tp_probs = np.ones(self.nA)*self.epsilon/self.nA
-        tp_probs[a] += (1 - self.epsilon)
+    
+    def get_sigma(self, a):
+        return np.random.randint(2, size=self.nA)[a]
 
-        return np.random.choice(range(self.nA), p = bp_probs), bp_probs
-    
-    
-    def get_sigma(s):
-        pass
+def cliffwalk():
+    env = gym.make('CliffWalking-v0')
+    exp = f"experiments/cliffwalk_Q"
+    agent = Qsigma(env, gamma=0.9, epsilon=0.1, alpha=0.5, n=20)
+    train(env, agent, exp, num_episodes=200, max_runs=5)
+    return env, exp
+
 
 if __name__ == "__main__":
-    pass
+    env, exp_name = cliffwalk()
+    main_plot(exp_name, smoothing_window=10)
+    plt.ylim([-100, 0])
+    plt.title("Q-learning on " + env.spec._env_name)
+    # savepdf("Q_learning_cliff")
+    plt.show()

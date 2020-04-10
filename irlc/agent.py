@@ -6,9 +6,9 @@ import itertools
 import numpy as np
 # from irlc import log_time_series
 from tqdm import tqdm
-from utils.common import defaultdict2
+from irlc.common import defaultdict2
 from gym.envs.toy_text.discrete import DiscreteEnv
-from utils.irlc_plot import existing_runs
+from irlc.irlc_plot import existing_runs
 import warnings
 from collections import OrderedDict
 import os

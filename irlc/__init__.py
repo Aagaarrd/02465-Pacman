@@ -26,7 +26,7 @@ def bmatrix(a):
         return '\n'.join(rv)
 
 
-from utils.lazylog import LazyLog
+# from utils.lazylog import LazyLog
 
 def log_time_series(experiment, list_obs, max_xticks_to_log=None, run_name=None):
     logdir = f"{experiment}/"
@@ -46,7 +46,7 @@ def log_time_series(experiment, list_obs, max_xticks_to_log=None, run_name=None)
             logz.dump_tabular(verbose=False)
 
 
-from utils.irlc_plot import main_plot as main_plot
+# from utils.irlc_plot import main_plot as main_plot
 
 
 # def cn_(file_name):
