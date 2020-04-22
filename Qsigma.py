@@ -22,7 +22,8 @@ class Qsigma(Agent):
 
     def train(self, s, a, r, sp, done=False):
         t, n = self.t, self.n
-
+        if t == 0:  # We are in the initial state. Reset buffer.
+            self.S[0], self.A[0] = s, a
         behavior_policy = self.get_policy(s, epsilon=0.3)
         target_policy = self.get_policy(s, epsilon=self.epsilon)
 
@@ -52,9 +53,7 @@ class Qsigma(Agent):
                     if k == T:
                         G = self.R[T % (n + 1)]
                     else:
-                        V = 0
-                        for s_ in range(self.env.nS):
-                            V += self.pi(s_) * self.Q[s_][self.pi(s_)]
+                        V = sum(self.pi(s % k_idx) * self.Q[s % k_idx])
                         d = (self.sigma[k_idx] * self.rho[k_idx] + (1 - self.sigma[k_idx]) * self.pi(
                             self.S[k_idx]))
                         G = self.R[k_idx] + self.gamma * d * (
