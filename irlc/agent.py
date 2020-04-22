@@ -49,7 +49,7 @@ class Agent():
     def pi_eps(self, s):
         """ Implement epsilon-greedy exploration. Return random action with probability self.epsilon,
         else be greedy wrt. the Q-values. """
-        return self.pi(s) if self.epsilon > np.random.random() else np.random.randint(0, self.env.action_space.n)
+        return np.argmax(self.Q[s]) if np.random.random() > self.epsilon else np.random.choice(len(self.Q[s]))
 
     def value(self, s):
         return np.max(self.Q[s])
