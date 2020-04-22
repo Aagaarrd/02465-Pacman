@@ -11,7 +11,7 @@ class Qsigma(Agent):
         self.gamma = gamma
         self.n = n
         self.R, self.S, self.A, self.rho, self.sigma = [None] * (self.n + 1), [None] * (self.n + 1), [None] * (
-                    self.n + 1), [None] * (self.n + 1), [None] * (self.n + 1)
+                self.n + 1), [None] * (self.n + 1), [None] * (self.n + 1)
         self.t = 0
         super().__init__(env, gamma, epsilon)
 
@@ -28,39 +28,41 @@ class Qsigma(Agent):
 
         self.rho[t % (n + 1)] = target_policy['probs'][s % (n + 1)] / behavior_policy['probs'][s % (n + 1)]
         self.A[t % (n + 1)] = behavior_policy['action']
-        self.R[(t+1) % (n + 1)] = r
+        self.R[(t + 1) % (n + 1)] = r
         self.S[(t + 1) % (n + 1)] = sp
         self.sigma[t % (n + 1)] = self.get_sigma(a)
 
         if done:
             T = t + 1
+            tau_steps_to_train = range(t - n + 1, T)
         else:
-            T = np.inf
+            T = 1e10
+            tau_steps_to_train = [t - n + 1]
             ap = self.get_policy(sp, epsilon=0.3)['action']
             self.A[(t + 1) % (n + 1)] = ap
             self.sigma[(t + 1) % (n + 1)] = self.get_sigma(ap)
             self.rho[(t + 1) % (n + 1)] = target_policy['probs'][sp % (n + 1)] / behavior_policy['probs'][sp % (n + 1)]
 
-        tau = t - n + 1
-        if tau >= 0:
-            if t + 1 < T:
-                G = self.Q[self.S[(t+1) % (n+1)]][self.A[(t+1) % (n+1)]]
-            for k in range(min(t + 1, T), tau + 1, -1):
-                k_idx = k % (n+1)
-                if k == T:
-                    G = self.R[T % (n + 1)]
-                else:
-                    V = 0
-                    for s_ in range(self.env.nS):
-                        V += self.pi(s_)*self.Q[s_][self.pi(s_)]
-                    d = (self.sigma[k_idx] * self.rho[k_idx] + (1 - self.sigma[k_idx]) * self.pi(
-                        self.S[k_idx]))
-                    G = self.R[k_idx] + self.gamma * d * (
+        for tau in tau_steps_to_train:
+            if tau >= 0:
+                if t + 1 < T:
+                    G = self.Q[self.S[(t + 1) % (n + 1)]][self.A[(t + 1) % (n + 1)]]
+                for k in range(min(t + 1, T), tau + 1, -1):
+                    k_idx = k % (n + 1)
+                    if k == T:
+                        G = self.R[T % (n + 1)]
+                    else:
+                        V = 0
+                        for s_ in range(self.env.nS):
+                            V += self.pi(s_) * self.Q[s_][self.pi(s_)]
+                        d = (self.sigma[k_idx] * self.rho[k_idx] + (1 - self.sigma[k_idx]) * self.pi(
+                            self.S[k_idx]))
+                        G = self.R[k_idx] + self.gamma * d * (
                                 G - self.Q[self.S[k_idx]][self.A[k_idx]]) + self.gamma * V
 
-            S_tau, A_tau = self.S[tau % (n + 1)], self.A[tau % (n + 1)]
-            delta = (G - self.Q[S_tau][A_tau])
-            self.Q[S_tau][A_tau] += self.alpha * delta
+                S_tau, A_tau = self.S[tau % (n + 1)], self.A[tau % (n + 1)]
+                delta = (G - self.Q[S_tau][A_tau])
+                self.Q[S_tau][A_tau] += self.alpha * delta
 
         self.t += 1
         if done:
