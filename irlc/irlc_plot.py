@@ -85,6 +85,9 @@ def get_datasets(fpath, x, condition=None, smoothing_window=None, resample_key=N
                     # exp_name = params['exp_name']
 
             log_path = os.path.join(root, 'log.txt')
+            if os.stat(log_path).st_size == 0:
+                print("Bad plot file", log_path, "size is zero. Skipping")
+                continue
             experiment_data = pd.read_table(log_path)
             # raise Exception("Group by ehre.0")
             if smoothing_window:

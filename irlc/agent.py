@@ -4,7 +4,7 @@ This file may not be shared/redistributed freely. Please read copyright notice i
 import sys
 import itertools
 import numpy as np
-# from irlc import log_time_series
+from irlc import log_time_series
 from tqdm import tqdm
 from irlc.common import defaultdict2
 from gym.envs.toy_text.discrete import DiscreteEnv
@@ -32,7 +32,7 @@ class Agent():
         raise NotImplementedError()
 
     def __str__(self):
-        # warnings.warn("Please implement string method for caching; include ALL parameters")
+        warnings.warn("Please implement string method for caching; include ALL parameters")
         return super().__str__()
 
     def random_pi(self, s):
@@ -49,7 +49,8 @@ class Agent():
     def pi_eps(self, s):
         """ Implement epsilon-greedy exploration. Return random action with probability self.epsilon,
         else be greedy wrt. the Q-values. """
-        return np.argmax(self.Q[s]) if np.random.random() > self.epsilon else np.random.choice(len(self.Q[s]))
+        # TODO: 1 lines missing.
+        return np.argmax(self.Q[s]) if np.random.random() > self.epsilon else self.env.action_space.sample()
 
     def value(self, s):
         return np.max(self.Q[s])
@@ -58,7 +59,7 @@ class Agent():
 class ValueAgent(Agent):
     def __init__(self, env, gamma=0.95, policy=None, v_init_fun=None):
         self.env = env
-        self.policy = policy  # policy to evaluate 
+        self.policy = policy  # policy to evaluate
         """ Value estimates. 
         Initially v[s] = 0 unless v_init_fun is given in which case v[s] = v_init_fun(s). """
         self.v = defaultdict2(float if v_init_fun is None else v_init_fun)
@@ -126,7 +127,7 @@ def train(env, agent, experiment_name=None, num_episodes=None, verbose=True, res
         if did_load:
             os.rename(recent + "/log.txt", recent + "/log2.txt")  # Shuffle old logs
 
-    #if experiment_name is not None:
-    #    log_time_series(experiment=experiment_name, list_obs=stats)
-    #    print(f"Training completed. Logging: '{', '.join(stats[0].keys())}' to {experiment_name}")
-    #return experiment_name, stats, done
+    if experiment_name is not None:
+        log_time_series(experiment=experiment_name, list_obs=stats)
+        print(f"Training completed. Logging: '{', '.join(stats[0].keys())}' to {experiment_name}")
+    return experiment_name, stats, done
