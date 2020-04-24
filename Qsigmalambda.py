@@ -42,7 +42,8 @@ if __name__ == "__main__":
     envn = 'CliffWalking-v0'
     env = gym.make(envn)
     agent = Qsigmalambda(env, gamma=0.9, epsilon=0.1, alpha=0.5)
-    exp = f"experiments/{envn}_{agent}"
+    agent_name = "Q_sigmalambda"
+    exp = f"experiments/{envn}_{agent_name}"
     train(env, agent, exp, num_episodes=200, max_runs=5)
     main_plot(exp, smoothing_window=10)
     plt.ylim([-100, 0])

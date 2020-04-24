@@ -32,7 +32,7 @@ class Agent():
         raise NotImplementedError()
 
     def __str__(self):
-        warnings.warn("Please implement string method for caching; include ALL parameters")
+        # warnings.warn("Please implement string method for caching; include ALL parameters")
         return super().__str__()
 
     def random_pi(self, s):
