@@ -27,7 +27,7 @@ class Qsigma(Agent):
         t, n = self.t, self.n
         if t == 0:  # We are in the initial state. Reset buffer.
             self.S[0], self.A[0] = s, a
-        self.rho[t % (n + 1)] = self.target_policy(s)['probs'][s % (n + 1)] / self.behavior_policy(s)['probs'][s % (n + 1)]
+        self.rho[t % (n + 1)] = self.target_policy(s)['probs'][a] / self.behavior_policy(s)['probs'][a]
         self.A[t % (n + 1)] = self.behavior_policy(s)['action']
         self.R[t % (n + 1)] = r
         self.S[(t + 1) % (n + 1)] = sp
@@ -44,8 +44,8 @@ class Qsigma(Agent):
             self.Q[self.S[(t + 1) % (n + 1)]][self.A[(t + 1) % (n + 1)]] = Qp
             sigmap = self.get_sigma(ap)
             self.sigma[(t + 1) % (n + 1)] = sigmap
-            V = sum([self.behavior_policy(sp)['probs'][a]*self.Q[sp][a] for a in range(env.nA)])
-            self.delta[(t + 1) % (n + 1)] = r + self.gamma*(sigmap*Qp+(1-sigmap)*V) - self.Q[s % (n + 1)][a % (n + 1)]
+            V = np.dot(self.behavior_policy(sp)['probs'], self.Q[sp])
+            self.delta[t % (n + 1)] = r + self.gamma*(sigmap*Qp+(1-sigmap)*V) - self.Q[s % (n + 1)][a % (n + 1)]
             self.rho[(t + 1) % (n + 1)] = self.target_policy(sp)['probs'][sp % (n + 1)] / self.behavior_policy(sp)['probs'][sp % (n + 1)]
 
         tau = t - n + 1
@@ -55,8 +55,8 @@ class Qsigma(Agent):
             G = self.Q[S_tau][A_tau]
             for k in range(tau, min(tau+n-1, T-1)):
                 k_id = k % (n + 1)
-                G = G + E*self.delta[k_id]
-                E = self.gamma*E*((1-self.sigma[k_id])*self.target_policy(sp)['action']+self.sigma[(k + 1) % (n + 1)])
+                G += E*self.delta[k_id]
+                E = self.gamma*E*((1-self.sigma[k_id])*self.target_policy(self.S[(k + 1) % (n + 1)])['probs'][self.A[(k + 1) % (n + 1)]]+self.sigma[(k + 1) % (n + 1)])
                 rho *= (1 - self.sigma[k_id] + self.sigma[k_id]*self.rho[k_id])
 
             delta = rho*(G-self.Q[S_tau][A_tau])

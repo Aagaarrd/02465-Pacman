@@ -53,7 +53,7 @@ class Qsigma(Agent):
                     if k == T:
                         G = self.R[T % (n + 1)]
                     else:
-                        V = sum(self.pi(s % k_idx) * self.Q[s % k_idx])
+                        V = sum(self.pi(s % k_idx) * self.Q[s % k_idx]) # <---- det her er helt forkert
                         d = (self.sigma[k_idx] * self.rho[k_idx] + (1 - self.sigma[k_idx]) * self.pi(
                             self.S[k_idx]))
                         G = self.R[k_idx] + self.gamma * d * (
