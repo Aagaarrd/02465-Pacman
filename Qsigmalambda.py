@@ -4,15 +4,15 @@ import matplotlib.pyplot as plt
 from irlc.common import defaultdict2
 from irlc.irlc_plot import main_plot
 from irlc.agent import Agent, train
+from sarsa_agent import SarsaAgent
 import numpy as np
 # np.seterr('raise')
 
 
-class Qsigmalambda(Agent):
+class Qsigmalambda(SarsaAgent):
     def __init__(self, env, gamma=0.99, epsilon=0.1, alpha=0.5, lamb=0.9):
-        self.alpha = alpha
+        super().__init__(env, gamma=gamma, alpha=alpha, epsilon=epsilon)
         self.lamb = lamb
-        super().__init__(env, gamma=gamma, epsilon=epsilon)
         self.e = defaultdict2(self.Q.default_factory)
 
     def pi_probs(self, s):
@@ -22,20 +22,34 @@ class Qsigmalambda(Agent):
         return pi_probs
 
     def pi(self, s):
-        p = self.pi_probs(s)
-        return np.random.choice(range(self.env.nA), p=p)
+        if self.t == 0:
+            return self.pi_eps(s)
+        else:
+            p = self.pi_probs(s)
+            return np.random.choice(np.arange(0, self.env.nA), p=p)
 
     def train(self, s, a, r, sp, done=False):
         pi_probs = self.pi_probs(sp)
-        ap = self.pi(sp)
-        sigma = 1  # self.get_sigma(a)
+        ap = self.pi_eps(sp)
+        sigma = self.get_sigma(a)
         sarsa_target = self.Q[sp][ap]
-        exp_sarsa_target = sum(pi_probs[a] * self.Q[sp][a] for a in range(self.env.nA))
+        exp_sarsa_target = np.dot(pi_probs, self.Q[sp])
         td_target = r + self.gamma * (sigma * sarsa_target + (1 - sigma) * exp_sarsa_target)
         td_error = td_target - self.Q[s][a]
         self.e[s][a] += 1
-        self.Q[s][a] += self.alpha * td_error * self.e[s][a]
-        self.e[s][a] = self.gamma * self.lamb * self.e[s][a] * (sigma + (1 - sigma) * pi_probs[ap])
+        for s, es in self.e.items():
+            for a, e_sa in enumerate(es):
+                self.Q[s][a] += self.alpha * td_error * self.e[s][a]
+                self.e[s][a] *= self.gamma * self.lamb * (sigma + (1 - sigma) * pi_probs[ap])
+
+        if self.t > 1000:
+            done = True
+
+        if done:
+            self.e.clear()
+        else:
+            self.a = ap
+            self.t += 1
 
     def get_sigma(self, a):
         return np.random.randint(2, size=self.env.nA)[a]
