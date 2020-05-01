@@ -1,9 +1,10 @@
+# Based on Q(sigma) from S&B
 from irlc.agent import Agent, train
 import numpy as np
 from irlc.irlc_plot import main_plot
 import matplotlib.pyplot as plt
 import gym
-
+np.seterr('raise')
 
 class Qsigma(Agent):
     def __init__(self, env, gamma, alpha, epsilon, n):
@@ -53,11 +54,9 @@ class Qsigma(Agent):
                     if k == T:
                         G = self.R[T % (n + 1)]
                     else:
-                        V = sum(self.pi(s % k_idx) * self.Q[s % k_idx]) # <---- det her er helt forkert
-                        d = (self.sigma[k_idx] * self.rho[k_idx] + (1 - self.sigma[k_idx]) * self.pi(
-                            self.S[k_idx]))
-                        G = self.R[k_idx] + self.gamma * d * (
-                                G - self.Q[self.S[k_idx]][self.A[k_idx]]) + self.gamma * V
+                        V = np.dot(target_policy['probs'], self.Q[sp])
+                        d = (self.sigma[k_idx] * self.rho[k_idx] + (1 - self.sigma[k_idx]) * target_policy['probs'][self.A[k_idx]])
+                        G = self.R[k_idx] + self.gamma * d * (G - self.Q[self.S[k_idx]][self.A[k_idx]]) + self.gamma * V
 
                 S_tau, A_tau = self.S[tau % (n + 1)], self.A[tau % (n + 1)]
                 delta = (G - self.Q[S_tau][A_tau])

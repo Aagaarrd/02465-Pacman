@@ -1,8 +1,11 @@
+# based on Algorithm 1 https://arxiv.org/pdf/1703.01327.pdf
+
 from irlc.agent import Agent, train
 import numpy as np
 from irlc.irlc_plot import main_plot
 import matplotlib.pyplot as plt
 import gym
+np.seterr(all='raise')
 
 
 class Qsigma(Agent):
@@ -37,15 +40,15 @@ class Qsigma(Agent):
             T = t + 1
             self.delta[t % (n+1)] = r - self.Q[self.S[t % (n+1)]][self.A[t % (n+1)]]
         else:
-            T = 1e10
+            T = np.inf
             ap = self.behavior_policy(sp)['action']
             self.A[(t + 1) % (n + 1)] = ap
             Qp = self.Q[sp % (n+1)][ap % (n+1)]
             self.Q[self.S[(t + 1) % (n + 1)]][self.A[(t + 1) % (n + 1)]] = Qp
             sigmap = self.get_sigma(ap)
             self.sigma[(t + 1) % (n + 1)] = sigmap
-            V = np.dot(self.behavior_policy(sp)['probs'], self.Q[sp])
-            self.delta[t % (n + 1)] = r + self.gamma*(sigmap*Qp+(1-sigmap)*V) - self.Q[s % (n + 1)][a % (n + 1)]
+            Vp = sum(self.target_policy(sp)['probs'][a]*self.Q[sp][a] for a in range(env.nA))
+            self.delta[t % (n + 1)] = r + self.gamma*(sigmap*Qp+(1-sigmap)*Vp) - self.Q[s % (n + 1)][a % (n + 1)]
             self.rho[(t + 1) % (n + 1)] = self.target_policy(sp)['probs'][sp % (n + 1)] / self.behavior_policy(sp)['probs'][sp % (n + 1)]
 
         tau = t - n + 1
@@ -67,7 +70,7 @@ class Qsigma(Agent):
             self.t = 0
 
     def get_policy(self, s, epsilon):
-        a = np.argmax(self.Q[s][:])
+        a = np.argmax(self.Q[s])
         pi_probs = np.ones(self.env.nA) * epsilon / self.env.nA
         pi_probs[a] += (1 - epsilon)
         return {'action': np.random.choice(range(self.env.nA), p=pi_probs), 'probs': pi_probs}
@@ -81,7 +84,7 @@ if __name__ == "__main__":
     env = gym.make(envn)
     agent = Qsigma(env, n=3, gamma=0.9, epsilon=0.1, alpha=0.5)
     exp = f"experiments/{envn}_{agent}"
-    train(env, agent, exp, num_episodes=200, max_runs=5)
+    train(env, agent, exp, num_episodes=50, max_runs=5)
     main_plot(exp, smoothing_window=10)
     plt.ylim([-100, 0])
     plt.show()

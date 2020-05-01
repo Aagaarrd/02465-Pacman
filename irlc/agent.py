@@ -17,28 +17,50 @@ import csv
 
 
 class Agent():
+    """
+    Main agent class. See description of Ex09 for further details on how to use it with the environment, train and main_plot functions.
+    """
+
     def __init__(self, env, gamma=0.99, epsilon=0):
         self.env, self.gamma, self.epsilon = env, gamma, epsilon
+        """
+        The self.Q variable is a custom datastructure to save the Q(s,a)-values during training. 
+        There are multiple ways to implement the Q-values differently than here, most of which will us in hot water
+        down the line. For instance, Q-values could be stored like a states x actions numpy table; this is simpler
+        than what we have below, but it has the disadvantage it uses a lot of memory and that the states and actions
+        has to be integers indexed from zero (i.e. to index self.Q[s,a] ). Another idea is to use nested dictionaries, i.e. 
+        env.p[s] is a dictionary with keys a, this use less space, but it makes the max_a Q(s,a) operation difficult. 
+        Finally we want the action-space to depend on s. 
+        
+        We solve this using a custom datastructure: A dictionary such that if we index self.Q[s] for an (unknown) s, 
+        it calls the function we provide to defaultdict2, i.e. defaultdict2(myfun) and inserts that value in the dictionary:
+        note this is an extension of the defaultdict-class (google to learn more). 
+        
+        >>> self.Q[s] = defaultdict2(myfun)
+        >>> self.Q[s] = myfun(s) # when we index self.Q[s] where s is not in Q[s]
+        """
         self.Q = defaultdict2(
             lambda s: np.zeros(len(env.P[s]) if hasattr(env, 'P') and s in env.P else env.action_space.n))
 
     def pi(self, s):
-        """ Should return the Agent's action in s (i.e. an element contained in env.action_space)"""
+        """ Should return the Agent's action in state s (i.e. an element contained in env.action_space)"""
         raise NotImplementedError("return action")
 
     def train(self, s, a, r, sp, done=False):
         """ Called at each step of the simulation.
-        The agent was in s, took a, ended up in sp (with reward r) and done indicates if the environment terminated """
+        The agent was in state s, took action a, ended up in state sp (with reward r).
+        'done' is a bool which indicates if the environment terminated when transitioning to sp. """
         raise NotImplementedError()
 
     def __str__(self):
-        # warnings.warn("Please implement string method for caching; include ALL parameters")
+        """ A unique name for this agent. Used for plotting. """
         return super().__str__()
 
     def random_pi(self, s):
         """ Generates a random action given s.
 
-        It might seem strange why this is useful, however many policies requires us to to random exploration.
+        It might seem strange why this is useful, however many policies requires us to to random exploration, and it is
+        possible to get the method wrong.
         We will implement the method depending on whether self.env defines an MDP or just contains an action space.
         """
         if isinstance(self.env, DiscreteEnv):
@@ -49,11 +71,17 @@ class Agent():
     def pi_eps(self, s):
         """ Implement epsilon-greedy exploration. Return random action with probability self.epsilon,
         else be greedy wrt. the Q-values. """
-        # TODO: 1 lines missing.
-        return np.argmax(self.Q[s]) if np.random.random() > self.epsilon else self.env.action_space.sample()
+        return self.random_pi(s) if np.random.rand() < self.epsilon else np.argmax(
+            self.Q[s] + np.random.rand(len(self.Q[s])) * 1e-8)
 
     def value(self, s):
         return np.max(self.Q[s])
+
+
+"""
+This is a simple wrapper class around the Agent class above. It fixes the policy and is therefore useful for doing 
+value estimation.
+"""
 
 
 class ValueAgent(Agent):
@@ -72,8 +100,15 @@ class ValueAgent(Agent):
         return self.v[s]
 
 
-def load_time_series(experiment_name):
+def load_time_series(experiment_name, exclude_empty=True):
+    """
+    Load most recent non-empty time series (we load non-empty since lazylog creates a new dir immediately)
+    """
     files = list(filter(os.path.isdir, glob.glob(experiment_name + "/*")))
+    if exclude_empty:
+        files = [f for f in files if
+                 os.path.exists(os.path.join(f, "log.txt")) and os.stat(os.path.join(f, "log.txt")).st_size > 0]
+
     recent = sorted(files, key=lambda file: os.path.basename(file))[-1]
     stats = []
     with open(recent + '/log.txt', 'r') as f:
@@ -87,7 +122,7 @@ def load_time_series(experiment_name):
 
 
 def train(env, agent, experiment_name=None, num_episodes=None, verbose=True, reset=True, max_steps=1e10,
-          max_runs=None, saveload_model=False):
+          max_runs=None, saveload_model=False, save_stats=True):
     if max_runs is not None and existing_runs(experiment_name) >= max_runs:
         return experiment_name, None, True
     stats = []
@@ -124,10 +159,10 @@ def train(env, agent, experiment_name=None, num_episodes=None, verbose=True, res
     sys.stderr.flush()
     if saveload_model:
         agent.save(experiment_name)
-        if did_load:
+        if did_load and save_stats:
             os.rename(recent + "/log.txt", recent + "/log2.txt")  # Shuffle old logs
 
-    if experiment_name is not None:
+    if experiment_name is not None and save_stats:
         log_time_series(experiment=experiment_name, list_obs=stats)
         print(f"Training completed. Logging: '{', '.join(stats[0].keys())}' to {experiment_name}")
     return experiment_name, stats, done
