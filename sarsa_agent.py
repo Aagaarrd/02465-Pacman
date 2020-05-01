@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from q_agent import QAgent
 from irlc.irlc_plot import main_plot
 from irlc.agent import train
-from q_agent import cliffwalk
+from q_agent import experiment as q_agent_exp
+import gym
 from irlc.common import defaultdict2
 
 
@@ -37,11 +38,19 @@ class SarsaAgent(QAgent):
     def __str__(self):
         return f"Sarsa{self.gamma}_{self.epsilon}_{self.alpha}"
 
-sarsa_exp = f"experiments/cliffwalk_Sarsa"
-if __name__ == "__main__":
-    env, q_experiment = cliffwalk()  # get results from Q-learning
+
+
+def experiment():
+    envn = 'StochWindyGridWorld-v0'
+    env = gym.make(envn)
     agent = SarsaAgent(env, epsilon=0.1, alpha=0.5)
-    train(env, agent, sarsa_exp, num_episodes=200, max_runs=10)
+    exp = f"experiments/{envn}_{str(agent)}"
+    train(env, agent, exp, num_episodes=200, max_runs=10)
+    return env, exp
+
+if __name__ == "__main__":
+    env, q_experiment = q_agent_exp()  # get results from Q-learning
+    env, sarsa_exp = experiment()
     main_plot([q_experiment, sarsa_exp], smoothing_window=10)
     plt.ylim([-100, 0])
     plt.title("Q and Sarsa learning on " + env.spec._env_name)

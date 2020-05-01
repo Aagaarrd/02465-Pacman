@@ -7,6 +7,7 @@ from irlc.agent import Agent, train
 import gym
 from irlc.irlc_plot import main_plot
 import matplotlib.pyplot as plt
+import gym_windy_gridworlds
 # from irlc import savepdf
 
 
@@ -38,17 +39,19 @@ class QAgent(Agent):
 
 
 
-q_exp = f"experiments/cliffwalk_Q"
 
-def cliffwalk():
-    env = gym.make('CliffWalking-v0')
+
+def experiment():
+    envn = 'StochWindyGridWorld-v0'
+    env = gym.make(envn)
     agent = QAgent(env, epsilon=0.1, alpha=0.5)
-    train(env, agent, q_exp, num_episodes=200, max_runs=10)
-    return env, q_exp
+    exp = f"experiments/{envn}_{str(agent)}"
+    train(env, agent, exp, num_episodes=200, max_runs=10)
+    return env, exp
 
 
 if __name__ == "__main__":
-    env, exp_name = cliffwalk()
+    env, q_exp = experiment()
     main_plot(q_exp, smoothing_window=10)
     plt.ylim([-100, 0])
     plt.title("Q-learning on " + env.spec._env_name)

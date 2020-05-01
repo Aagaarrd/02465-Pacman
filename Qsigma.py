@@ -29,7 +29,7 @@ class Qsigma(Agent):
         target_policy = self.get_policy(s, epsilon=self.epsilon)
 
         self.rho[t % (n + 1)] = target_policy['probs'][s % (n + 1)] / behavior_policy['probs'][s % (n + 1)]
-        self.A[t % (n + 1)] = behavior_policy['action']
+        self.A[t % (n + 1)] = behavior_policy['action'] if not done else -1
         self.R[(t + 1) % (n + 1)] = r
         self.S[(t + 1) % (n + 1)] = sp
         self.sigma[t % (n + 1)] = self.get_sigma(a)
