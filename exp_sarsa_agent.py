@@ -2,17 +2,25 @@
 This file may not be shared/redistributed freely. Please read copyright notice in the git repo.
 """
 import matplotlib.pyplot as plt
+import numpy as np
 from q_agent import QAgent
 from irlc.irlc_plot import main_plot
 from irlc.agent import train
 from q_agent import experiment as q_agent_exp
 import gym
+from irlc.common import defaultdict2
 
 
-class SarsaAgent(QAgent):
+class ExpSarsaAgent(QAgent):
     def __init__(self, env, gamma=0.99, alpha=0.5, epsilon=0.1):
         self.t = 0  # indicate we are at the beginning of the episode
         super().__init__(env, gamma=gamma, alpha=alpha, epsilon=epsilon)
+
+    def pi_probs(self, s):
+        a = np.argmax(self.Q[s])
+        pi_probs = np.ones(self.env.nA) * self.epsilon / self.env.nA
+        pi_probs[a] += (1 - self.epsilon)
+        return pi_probs
 
     def pi(self, s):
         if self.t == 0:  # !f
@@ -27,19 +35,21 @@ class SarsaAgent(QAgent):
         generate A' as self.a by being epsilon-greedy. Re-use code from the Agent class.
         """
         self.a = self.pi_eps(sp) if not done else -1  # !b #!b self.a = ....
+        pi_probs = self.pi_probs(sp)
+        exp_sarsa_target = np.dot(pi_probs, self.Q[sp])
         """ now that you know A' = self.a, perform the update to self.Q[s][a] here """
-        delta = r + (self.gamma * self.Q[sp][self.a] if not done else 0) - self.Q[s][a]  # !b
+        delta = r + (self.gamma * exp_sarsa_target if not done else 0) - self.Q[s][a]  # !b
         self.Q[s][a] += self.alpha * delta  # !b
         self.t = 0 if done else self.t + 1  # update current iteration number
 
     def __str__(self):
-        return f"Sarsa($\\gamma={self.gamma},\\epsilon={self.epsilon},\\alpha={self.alpha}$)"
+        return f"ExpSarsa($\\gamma={self.gamma},\\epsilon={self.epsilon},\\alpha={self.alpha}$)"
 
 
 def experiment():
     envn = 'StochWindyGridWorld-v0'
     env = gym.make(envn)
-    agent = SarsaAgent(env, epsilon=0.1, alpha=0.5)
+    agent = ExpSarsaAgent(env, epsilon=0.1, alpha=0.5)
     exp = f"experiments/{str(agent)}"
     train(env, agent, exp, num_episodes=200, max_runs=10)
     return env, exp
